@@ -79,6 +79,21 @@ void sr_handlepacket(struct sr_instance* sr,
   printf("*** -> Received packet of length %d \n",len);
 
   /* fill in code here */
+  uint16_t ethernet_type = ethertype(packet);
+
+  //eth packets have minimum length - check that
+  //check checksum stuff
+  // validation as we go
+  if (ethernet_type == ethertype_arp){
+    //handle the arp
+  }
+  else if (ethernet_type == ethertype_ip){
+    //handle the ip
+  }
+  else{
+    // drop or return (idk bruh)
+  }
+
 
 }/* end sr_ForwardPacket */
 
