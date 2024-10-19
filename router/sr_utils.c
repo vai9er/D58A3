@@ -183,20 +183,19 @@ void print_hdrs(uint8_t *buf, uint32_t length) {
   }
 }
 
-uint16_t get_arp_header(uint8_t *buf) {
+sr_arp_hdr_t *get_arp_header(uint8_t *buf) {
   return (sr_arp_hdr_t *)(buf + sizeof(sr_ethernet_hdr_t));
 }
 
-uint16_t get_ethernet_hdr(uint8_t *buf) {
+sr_ethernet_hdr_t *et_ethernet_hdr(uint8_t *buf) {
   sr_ethernet_hdr_t *ehdr = (sr_ethernet_hdr_t *)buf;
   return ehdr;
 }
 
-uint16_t get_ip_header(uint8_t *buf) {
+sr_ip_hdr_t *get_ip_header(uint8_t *buf) {
   return (sr_ip_hdr_t *)(buf + sizeof(sr_ethernet_hdr_t));
 }
 
-uint16_t get_icmp_header(uint8_t *buf) {
+sr_icmp_hdr_t *get_icmp_header(uint8_t *buf) {
   return (sr_icmp_hdr_t *)(buf + sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t));
 }
-
