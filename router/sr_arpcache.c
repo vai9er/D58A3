@@ -10,6 +10,10 @@
 #include "sr_router.h"
 #include "sr_if.h"
 #include "sr_protocol.h"
+#include "sr_rt.h"
+#include <string.h>
+
+#include "sr_utils.h"
 
 /* 
   This function gets called every second. For each request sent out, we keep
@@ -18,6 +22,11 @@
 */
 void sr_arpcache_sweepreqs(struct sr_instance *sr) { 
     /* Fill this in */
+    struct sr_arpreq *request = sr->cache.requests;
+
+    while(request != NULL){
+        /*handle logic*/
+    }
 }
 
 /* You should not need to touch the rest of this code. */
