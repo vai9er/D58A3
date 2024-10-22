@@ -136,6 +136,8 @@ void handle_arp(struct sr_instance* sr, uint8_t* packet, unsigned int len, char*
         memcpy(ethernet_hdr->ether_dhost, ethernet_hdr->ether_shost, ETHER_ADDR_LEN);
         memcpy(ethernet_hdr->ether_shost, iface->addr, ETHER_ADDR_LEN);
 
+        printf("Send packet: \n");
+        print_hdrs(pkt_copy, len);
         sr_send_packet(sr, pkt_copy, len, interface);
         free(pkt_copy);
     }
