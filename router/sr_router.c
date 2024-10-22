@@ -105,75 +105,40 @@ void sr_handlepacket(struct sr_instance* sr,
 }/* end sr_ForwardPacket */
 
 
-void handle_arp(struct sr_instance* sr,
-        uint8_t * packet/* lent */,
-        unsigned int len,
-        char* interface/* lent */)
-{
-
+void handle_arp(struct sr_instance* sr, uint8_t* packet, unsigned int len, char* interface) {
     if (len < sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_arp_hdr)) {
-        fprintf(stderr , "** PACKET TOO SHORT \n");
-        return -1;
+        fprintf(stderr, "** PACKET TOO SHORT \n");
+        return;
     }
 
-    sr_arp_hdr_t *arp_hdr;
-    arp_hdr = (struct sr_arp_hdr *)(packet + sizeof(struct sr_ethernet_hdr));
+    sr_arp_hdr_t* arp_hdr = (sr_arp_hdr_t*)(packet + sizeof(struct sr_ethernet_hdr));
     struct sr_if* iface = sr_get_interface(sr, interface);
 
-    /* check if arp is to myself */
     if (arp_hdr->ar_tip != iface->ip) {
-        return 0;
+        return;
     }
 
-    /* check if the arp is an arp request and the target is me */
-    if (arp_hdr->ar_op == htons(arp_op_request)) {  
-        arp_request(sr, packet, len, interface);
+    if (arp_hdr->ar_op == htons(arp_op_request)) {
+        uint8_t* pkt_copy = (uint8_t*)malloc(len);
+        memcpy(pkt_copy, packet, len);
+
+        sr_ethernet_hdr_t* ethernet_hdr = (sr_ethernet_hdr_t*)pkt_copy;
+        sr_arp_hdr_t* new_arp_hdr = (sr_arp_hdr_t*)(pkt_copy + sizeof(struct sr_ethernet_hdr));
+
+        /* Update ARP header */
+        new_arp_hdr->ar_op = htons(arp_op_reply);
+        memcpy(new_arp_hdr->ar_tha, new_arp_hdr->ar_sha, ETHER_ADDR_LEN);
+        new_arp_hdr->ar_tip = new_arp_hdr->ar_sip;
+        memcpy(new_arp_hdr->ar_sha, iface->addr, ETHER_ADDR_LEN);
+        new_arp_hdr->ar_sip = iface->ip;
+
+        /* Update Ethernet header */
+        memcpy(ethernet_hdr->ether_dhost, ethernet_hdr->ether_shost, ETHER_ADDR_LEN);
+        memcpy(ethernet_hdr->ether_shost, iface->addr, ETHER_ADDR_LEN);
+
+        sr_send_packet(sr, pkt_copy, len, interface);
+        free(pkt_copy);
     }
-
-    /* if the arp is an arp reply to me 
-     * if (arp_hdr->ar_op == htons(arp_op_reply)) {
-      *  
-     * }  
-     */
-    return 0;
-}
-
-/* handle arp request to me */
-void arp_request(struct sr_instance* sr,
-        uint8_t * packet, 
-        unsigned int len,
-        char* interface) 
-{
-    sr_ethernet_hdr_t *ethernet_hdr;
-    sr_arp_hdr_t *arp_hdr;
-    struct sr_if* iface;
-    uint8_t *pkt_copy;
-
-    iface = sr_get_interface(sr, interface);
-
-    /*copy of packet*/
-    pkt_copy = (uint8_t *)malloc(len);
-    memcpy(pkt_copy, packet, len);  
-
-    ethernet_hdr = (sr_ethernet_hdr_t *)pkt_copy;
-    arp_hdr = (sr_arp_hdr_t *)(pkt_copy + sizeof(struct sr_ethernet_hdr));
-
-    /* update arp header */
-    arp_hdr->ar_op = htons(arp_op_reply);
-    memcpy(arp_hdr->ar_tha, arp_hdr->ar_sha, ETHER_ADDR_LEN);
-    arp_hdr->ar_tip = arp_hdr->ar_sip;
-
-    memcpy(arp_hdr->ar_sha, iface->addr, ETHER_ADDR_LEN);
-    arp_hdr->ar_sip = iface->ip;
-
-    /* update eth*/
-    memcpy(ethernet_hdr->ether_dhost, ethernet_hdr->ether_shost, ETHER_ADDR_LEN);
-    memcpy(ethernet_hdr->ether_shost, iface->addr, ETHER_ADDR_LEN);
-
-    sr_send_packet(sr, pkt_copy, len, interface);
-    free(pkt_copy);
-
-    return;
 }
 
 
@@ -230,3 +195,5 @@ void arp_request(struct sr_instance* sr,
     * 
     * free(reply_packet);
     * ---------------------------------------------------------------- */
+
+   
