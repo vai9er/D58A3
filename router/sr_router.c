@@ -94,7 +94,6 @@ void sr_handlepacket(struct sr_instance* sr,
 
 
   if (ethernet_hdr->ether_type == htons(ethertype_arp)) {
-      printf("WE HAVE A REQUEST \n\n");
       handle_arp(sr, packet, len, interface);
   } 
   else {
@@ -119,6 +118,7 @@ void handle_arp(struct sr_instance* sr, uint8_t* packet, unsigned int len, char*
     }
 
     if (arp_hdr->ar_op == htons(arp_op_request)) {
+        printf("WE HAVE A REQUEST \n\n");
         uint8_t* pkt_copy = (uint8_t*)malloc(len);
         memcpy(pkt_copy, packet, len);
 
@@ -140,5 +140,34 @@ void handle_arp(struct sr_instance* sr, uint8_t* packet, unsigned int len, char*
         print_hdrs(pkt_copy, len);
         sr_send_packet(sr, pkt_copy, len, interface);
         free(pkt_copy);
+    }
+
+    else if (arp_hdr->ar_op == htons(arp_op_reply)) {
+
+        uint32_t sender_ip = arp_hdr->ar_sip;
+        unsigned char sender_mac[ETHER_ADDR_LEN];
+        memcpy(sender_mac, arp_hdr->ar_sha, ETHER_ADDR_LEN);
+
+        /* insert the senders IP and MAC into the ARP cache */
+        struct sr_arpreq *req = sr_arpcache_insert(&(sr->cache), sender_mac, sender_ip);
+
+        /* if there is a pending ARP request, process it */
+        if (req) {
+            struct sr_packet *packet = req->packets;
+            while (packet) {
+                /* get eth header and update it with destincation and source MAC */
+                sr_ethernet_hdr_t *eth_hdr = (sr_ethernet_hdr_t *)(packet->buf);
+
+                memcpy(eth_hdr->ether_dhost, sender_mac, ETHER_ADDR_LEN);
+                struct sr_if* iface = sr_get_interface(sr, packet->iface);
+                memcpy(eth_hdr->ether_shost, iface->addr, ETHER_ADDR_LEN);
+
+                sr_send_packet(sr, packet->buf, packet->len, packet->iface);
+
+                packet = packet->next;
+            }
+            /* destroy the arp request*/
+            sr_arpreq_destroy(&(sr->cache), req);
+        }
     }
 }
