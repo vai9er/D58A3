@@ -14,7 +14,6 @@
 #include <stdio.h>
 #include <assert.h>
 
-
 #include "sr_if.h"
 #include "sr_rt.h"
 #include "sr_router.h"
@@ -83,7 +82,6 @@ int send_icmp(struct sr_instance* sr, uint8_t *eth, uint8_t *ip, uint8_t *icmp, 
   uint16_t ip_id = htons(ip_hdr->ip_id) + 1;
   uint8_t *data = packet + sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t) + sizeof(sr_icmp_hdr_t);
   uint16_t data_len = htons(ip_hdr->ip_len) - sizeof(sr_ip_hdr_t) - sizeof(sr_icmp_hdr_t);
-               
 
 	sr_icmp_hdr_t *new_icmp_hdr;
 
@@ -264,26 +262,33 @@ void handle_arp(struct sr_instance* sr, uint8_t* packet, unsigned int len, char*
 
     if (arp_hdr->ar_op == htons(arp_op_request)) {
         printf("WE HAVE A REQUEST \n\n");
+
+        sr_ethernet_hdr_t* ethernet_hdr = (sr_ethernet_hdr_t*)packet;
+        
         uint8_t* pkt_copy = (uint8_t*)malloc(len);
         memcpy(pkt_copy, packet, len);
 
-        sr_ethernet_hdr_t* ethernet_hdr = (sr_ethernet_hdr_t*)pkt_copy;
         sr_arp_hdr_t* new_arp_hdr = (sr_arp_hdr_t*)(pkt_copy + sizeof(struct sr_ethernet_hdr));
 
-        /* Update ARP header */
+        sr_ethernet_hdr_t* new_eth_hdr = (sr_ethernet_hdr_t*)pkt_copy;
+        memcpy(new_eth_hdr->ether_dhost, ethernet_hdr->ether_shost, ETHER_ADDR_LEN);
+        memcpy(new_eth_hdr->ether_shost, iface->addr, ETHER_ADDR_LEN);
+        new_eth_hdr->ether_type = htons(ethertype_arp);
+
+        new_arp_hdr->ar_hrd = arp_hdr->ar_hrd;
+        new_arp_hdr->ar_pro = arp_hdr->ar_pro;
+        new_arp_hdr->ar_hln = arp_hdr->ar_hln;
+        new_arp_hdr->ar_pln = arp_hdr->ar_pln;
         new_arp_hdr->ar_op = htons(arp_op_reply);
-        memcpy(new_arp_hdr->ar_tha, new_arp_hdr->ar_sha, ETHER_ADDR_LEN);
-        new_arp_hdr->ar_tip = new_arp_hdr->ar_sip;
+        memcpy(new_arp_hdr->ar_tha, arp_hdr->ar_sha, ETHER_ADDR_LEN);
+        new_arp_hdr->ar_tip = arp_hdr->ar_sip;
         memcpy(new_arp_hdr->ar_sha, iface->addr, ETHER_ADDR_LEN);
         new_arp_hdr->ar_sip = iface->ip;
 
-        /* Update Ethernet header */
-        memcpy(ethernet_hdr->ether_dhost, ethernet_hdr->ether_shost, ETHER_ADDR_LEN);
-        memcpy(ethernet_hdr->ether_shost, iface->addr, ETHER_ADDR_LEN);
-
-        printf("Send packet: \n");
+        printf("Send ARP reply packet: \n");
         print_hdrs(pkt_copy, len);
         sr_send_packet(sr, pkt_copy, len, interface);
+        printf("ARP reply sent\n");
         free(pkt_copy);
     }
 
