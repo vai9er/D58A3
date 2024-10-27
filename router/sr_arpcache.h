@@ -147,4 +147,6 @@ int   sr_arpcache_init(struct sr_arpcache *cache);
 int   sr_arpcache_destroy(struct sr_arpcache *cache);
 void *sr_arpcache_timeout(void *cache_ptr);
 
+uint8_t *construct_arp_buff(uint8_t *ifacemac, uint32_t ifaceip, uint32_t destip);
+
 #endif
