@@ -288,6 +288,14 @@ void sr_handlepacket(struct sr_instance* sr,
     }
 
     sr_ip_hdr_t *ip_hdr = (sr_ip_hdr_t *)(packet + sizeof(sr_ethernet_hdr_t));
+    
+    sr_ip_hdr_t ip_test_hdr = *ip_hdr;
+    ip_test_hdr.ip_sum = 0; /* need to set this to zero to compare against original checksum*/
+    if (cksum(&ip_test_hdr, sizeof(sr_ip_hdr_t)) != ip_hdr->ip_sum) {
+      fprintf(stderr, "IP checksum failed, dropping packet\n");
+      return;
+    }
+
     uint8_t ip_proto = ip_protocol(ip_hdr);
 
     struct sr_if *interf;
@@ -303,9 +311,19 @@ void sr_handlepacket(struct sr_instance* sr,
 
         fprintf(stderr, "RECEIVED ICMP PACKET\n");
         if (ip_proto == ip_protocol_icmp) { /* ICMP */
-          minlength += sizeof(sr_icmp_t3_hdr_t);
+          minlength += sizeof(sr_icmp_hdr_t);
           if (len < minlength){
             fprintf(stderr, "Failed to print ICMP header, insufficient length\n");
+            return;
+          }
+
+          unsigned int data_len = len-sizeof(sr_ethernet_hdr_t)-sizeof(sr_ip_hdr_t);
+          sr_icmp_hdr_t *icmp_hdr = (sr_icmp_hdr_t *)(packet + sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t));
+          uint16_t icmp_sum  = icmp_hdr->icmp_sum;
+          icmp_hdr->icmp_sum = 0; /* need to set this to zero to compare against original checksum*/
+
+          if (cksum(icmp_hdr, data_len) != icmp_sum) {
+            fprintf(stderr, "ICMP checksum failed, dropping packet\n");
             return;
           }
 
@@ -319,7 +337,7 @@ void sr_handlepacket(struct sr_instance* sr,
     /* Forward */
     struct sr_rt *rt_entry = sr_longest_prefix(sr, ip_hdr->ip_dst);
     if (rt_entry == NULL) { /* SEND ICMP UNREACHABLE */ 
-      fprintf(stderr, "HOST UNREACHABLE\n");
+      fprintf(stderr, "NET UNREACHABLE\n");
       send_icmp(sr, eth_hdr, ip_hdr, packet, 3, 0);
       return;
     }
