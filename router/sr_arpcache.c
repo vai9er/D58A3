@@ -354,7 +354,7 @@ void *sr_arpcache_timeout(void *sr_ptr) {
     struct sr_arpcache *cache = &(sr->cache);
     
     while (1) {
-        sleep(1.0);
+        usleep(0.1e6);
         
         pthread_mutex_lock(&(cache->lock));
     
