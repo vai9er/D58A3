@@ -216,7 +216,8 @@ void sr_handlepacket(struct sr_instance* sr,
 
       if (interf->ip == ip_hdr->ip_dst) { 
 
-        if(ip_hdr->ip_p == ip_protocol_tcp || ip_hdr->ip_p == ip_protocol_udp) { /* TCP/UDP */
+        if(ip_hdr->ip_p == ip_protocol_tcp || ip_hdr->ip_p == ip_protocol_udp) {
+          fprintf(stderr, "UDP/TCP \n");
           send_icmp(sr, eth_hdr, ip_hdr, packet, 3, 3);
           return;
         }
@@ -227,15 +228,45 @@ void sr_handlepacket(struct sr_instance* sr,
             fprintf(stderr, "Failed to print ICMP header, insufficient length\n");
             return;
           } 
-          
+
           send_icmp(sr, eth_hdr, ip_hdr, packet, 0, 0);
           return;
         }
 			}
     }
 
-    /*Forward*/
+    /* Forward */
+    struct sr_rt *rt_entry = sr_longest_prefix(sr, ip_hdr->ip_dst);
+    if (rt_entry == NULL) { /* SEND ICMP UNREACHABLE */ 
+      send_icmp(sr, eth_hdr, ip_hdr, packet, 3, 0);
+      return;
+    }
+    char *fwd_interface = rt_entry->interface;
 
+    /* CHECK ARP CACHE */ 
+    struct sr_arpentry *arp_entry = sr_arpcache_lookup(&sr->cache, ip_hdr->ip_dst);
+
+    if (arp_entry == NULL) { /* ARP CACHE MISS */
+      /* QUEUE UP ARP REQ to be sent */
+      sr_arpcache_queuereq(&sr->cache, ip_hdr->ip_dst, packet, len, fwd_interface);
+      return;
+    }
+
+    sr_ethernet_hdr_t *fwd_eth_hdr;
+    fwd_eth_hdr = (sr_ethernet_hdr_t *)malloc(sizeof(sr_ethernet_hdr_t));
+
+    memcpy(fwd_eth_hdr->ether_dhost, arp_entry->mac, ETHER_ADDR_LEN);
+    memcpy(fwd_eth_hdr->ether_shost, eth_hdr->ether_dhost, ETHER_ADDR_LEN);
+
+    uint8_t *fwd_packet = (uint8_t *)malloc(len); /* the length of the forwarded packet is the same as the received */
+
+    memcpy(fwd_packet, packet, len); /* except for the ethernet header, everything else is the same (src ip and dst ip stay the same) */
+    memcpy(fwd_packet, fwd_eth_hdr, sizeof(sr_ethernet_hdr_t));
+
+    sr_send_packet(sr, fwd_packet, len, fwd_interface);
+
+    free(fwd_packet);
+    free(fwd_eth_hdr);
   } else if (ethtype == ethertype_arp) { /* ARP */
     handle_arp(sr, packet, len, interface);
   }  else {
