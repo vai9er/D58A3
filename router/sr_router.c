@@ -50,8 +50,6 @@ void sr_init(struct sr_instance* sr)
 
 } /* -- sr_init -- */
 
-
-
 struct sr_rt *sr_longest_prefix(struct sr_instance* sr, uint32_t ip)
 {
 	struct sr_rt *table = NULL;
@@ -70,31 +68,33 @@ struct sr_rt *sr_longest_prefix(struct sr_instance* sr, uint32_t ip)
 }
 
 
-int send_icmp(struct sr_instance* sr, uint8_t *eth, uint8_t *ip, uint8_t *icmp, uint8_t * packet, uint8_t icmp_type, uint8_t icmp_code)
+int send_icmp(struct sr_instance* sr, uint8_t *eth, uint8_t *ip, uint8_t * packet, uint8_t icmp_type, uint8_t icmp_code)
 {
-
+  /*Cast Headers*/
   sr_ethernet_hdr_t *eth_hdr = (sr_ethernet_hdr_t *)(eth);
   sr_ip_hdr_t *ip_hdr = (sr_ip_hdr_t *)(ip);
-  sr_icmp_hdr_t *icmp_hdr = (sr_icmp_hdr_t *)(icmp);
 
+  /*Extract IP Info*/
   uint32_t srcip = ip_hdr->ip_dst;
   uint32_t desip = ip_hdr->ip_src;
-
   uint16_t ip_id = htons(ip_hdr->ip_id) + 1;
+
+  /*Get Data*/
   uint8_t *data = packet + sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t) + sizeof(sr_icmp_hdr_t);
   uint16_t data_len = htons(ip_hdr->ip_len) - sizeof(sr_ip_hdr_t) - sizeof(sr_icmp_hdr_t);
                
-
+  /*Build ICMP Header*/
 	sr_icmp_hdr_t *new_icmp_hdr;
 
 	uint32_t icmp_len = sizeof(sr_icmp_hdr_t) + data_len;
   
-	new_icmp_hdr = malloc(icmp_len);
+	new_icmp_hdr = malloc(sizeof(sr_icmp_hdr_t));
 	new_icmp_hdr->icmp_type = icmp_type;
 	new_icmp_hdr->icmp_code = icmp_code;
-	memcpy((uint8_t*)new_icmp_hdr+ sizeof(sr_icmp_hdr_t), data, data_len);
-	new_icmp_hdr->icmp_sum = cksum(new_icmp_hdr, icmp_len);
+  new_icmp_hdr->icmp_sum = 0;
+	new_icmp_hdr->icmp_sum = cksum(new_icmp_hdr, sizeof(sr_icmp_hdr_t));
 
+  /*Build IP Header*/
 	sr_ip_hdr_t *new_ip_hdr;
 
 	new_ip_hdr = (sr_ip_hdr_t*) malloc(sizeof(sr_ip_hdr_t));
@@ -109,38 +109,43 @@ int send_icmp(struct sr_instance* sr, uint8_t *eth, uint8_t *ip, uint8_t *icmp, 
 	new_ip_hdr->ip_p = ip_protocol_icmp;
 	new_ip_hdr->ip_src = srcip;
 	new_ip_hdr->ip_dst = desip;
+  new_ip_hdr->ip_sum = 0;
 	new_ip_hdr->ip_sum = cksum(new_ip_hdr, sizeof(sr_ip_hdr_t));
 
+  /*Build Ethernet Header*/
 	sr_ethernet_hdr_t *new_eth_hdr;
 	new_eth_hdr = (sr_ethernet_hdr_t*)malloc(sizeof(sr_ethernet_hdr_t));
 
 	memcpy(new_eth_hdr->ether_dhost, eth_hdr->ether_shost, ETHER_ADDR_LEN);
 	memcpy(new_eth_hdr->ether_shost, eth_hdr->ether_dhost, ETHER_ADDR_LEN);
-
 	new_eth_hdr->ether_type = htons(ethertype_ip);
 
+
+  /*Assemble Packet*/
 	uint32_t len = sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t) + icmp_len;
-	uint8_t* buf = malloc(len);
-	memcpy(buf, new_eth_hdr, sizeof(sr_ethernet_hdr_t));
-	memcpy(buf + sizeof(sr_ethernet_hdr_t), new_ip_hdr, sizeof(sr_ip_hdr_t));
-	memcpy(buf + sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t), new_icmp_hdr, icmp_len);
+	uint8_t* new_packet = malloc(len);
+	memcpy(new_packet, new_eth_hdr, sizeof(sr_ethernet_hdr_t));
+	memcpy(new_packet + sizeof(sr_ethernet_hdr_t), new_ip_hdr, sizeof(sr_ip_hdr_t));
+	memcpy(new_packet + sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t), new_icmp_hdr, icmp_len);
+  memcpy(new_packet + sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t)+ sizeof(sr_icmp_hdr_t), data, data_len);
 
+
+  /*Run LPM*/
 	struct sr_rt *rt = sr_longest_prefix(sr, desip);
-	
-	if (rt == NULL)
-		return -1;
+	if (rt == NULL){
+    return -1;
+  }
 
+  int res = sr_send_packet(sr, new_packet, len, rt->interface);
+
+  /*DEBUG REMOVE BEFORE SUBMIT*/
   printf("NEW! \n");
-  print_hdr_eth(new_eth_hdr);
-  print_hdr_ip(new_ip_hdr);
-  print_hdr_icmp(new_icmp_hdr);
+  print_hdrs(new_packet, len);
 
-	int res = sr_send_packet(sr, buf, len, rt->interface);
-	
 	free(new_icmp_hdr);
 	free(new_ip_hdr);
 	free(new_eth_hdr);
-	free(buf);
+	free(new_packet);
 
   return res;
 }
@@ -212,13 +217,8 @@ void sr_handlepacket(struct sr_instance* sr,
 
       if (interf->ip == ip_hdr->ip_dst) { 
 
-        if(ip_hdr->ip_p == ip_protocol_tcp || ip_hdr->ip_p == ip_protocol_udp) {
-           fprintf(stderr, "UDP/TCP \n");
-          sr_icmp_hdr_t *icmp_hdr;
-          icmp_hdr = malloc(htons(ip_hdr->ip_len) - sizeof(sr_ip_hdr_t));
-          send_icmp(sr, eth_hdr, ip_hdr, icmp_hdr, packet, 3, 3);
-
-          free(icmp_hdr);
+        if(ip_hdr->ip_p == ip_protocol_tcp || ip_hdr->ip_p == ip_protocol_udp) { /* TCP/UDP */
+          send_icmp(sr, eth_hdr, ip_hdr, packet, 3, 3);
           return;
         }
 
@@ -229,9 +229,7 @@ void sr_handlepacket(struct sr_instance* sr,
             return;
           } 
           
-          sr_icmp_hdr_t *icmp_hdr = (sr_icmp_hdr_t *)(packet + sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t));
-          print_hdr_icmp(icmp_hdr);
-          send_icmp(sr, eth_hdr, ip_hdr, icmp_hdr, packet, 0, 0);
+          send_icmp(sr, eth_hdr, ip_hdr, packet, 0, 0);
           return;
         }
 			}
@@ -241,7 +239,6 @@ void sr_handlepacket(struct sr_instance* sr,
 
   } else if (ethtype == ethertype_arp) { /* ARP */
     handle_arp(sr, packet, len, interface);
-
   }  else {
     fprintf(stderr, "Unrecognized Ethernet Type: %d\n", ethtype);
   }
