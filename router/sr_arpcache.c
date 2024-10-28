@@ -20,12 +20,133 @@
   checking whether we should resend an request or destroy the arp request.
   See the comments in the header file for an idea of what it should look like.
 */
-void sr_arpcache_sweepreqs(struct sr_instance *sr) { 
-    /* Fill this in */
-    struct sr_arpreq *request = sr->cache.requests;
+void sr_arpcache_sweepreqs(struct sr_instance *sr) {
 
-    while(request != NULL){
-        /*handle logic*/
+    struct sr_arpreq *req = sr->cache.requests;
+    while (req != NULL) {
+        struct sr_arpreq *next_req = req->next;
+        handle_arpreq(sr, req);
+        req = next_req;
+    }
+}
+
+void handle_arpreq(struct sr_instance *sr, struct sr_arpreq *req) {
+    time_t now = time(NULL);
+    if (difftime(now, req->sent) >= 1.0 || req->sent == 0) {
+        if (req->times_sent >= 5) {
+
+            /*send 'icmp host unreachable' to waiting packets*/
+            /* send ARP req w host unreachable
+            *  source and dest ip (protocol 1 and TTL 64 for icmp)
+            *  icmp type 3 code 1
+            */
+           printf("HOST UNREACHABLE\n");
+            struct sr_packet *packet = req->packets;
+            while (packet != NULL) {
+                uint8_t *buf = packet->buf;
+                unsigned int len = packet->len;
+                char *iface = packet->iface;
+
+                struct sr_if *out_iface = sr_get_interface(sr, iface);
+                if (!out_iface) {
+                    fprintf(stderr, "Interface %s not found.\n", iface);
+                    packet = packet->next;
+                    continue;
+                }
+
+                /* extract the original eth and ip header */
+                sr_ethernet_hdr_t *orig_eth_hdr = (sr_ethernet_hdr_t *)buf;
+                sr_ip_hdr_t *orig_ip_hdr = (sr_ip_hdr_t *)(buf + sizeof(sr_ethernet_hdr_t));
+
+                /* create new eth header */
+                sr_ethernet_hdr_t new_eth_hdr;
+                memcpy(new_eth_hdr.ether_dhost, orig_eth_hdr->ether_shost, ETHER_ADDR_LEN);
+                memcpy(new_eth_hdr.ether_shost, out_iface->addr, ETHER_ADDR_LEN);
+                new_eth_hdr.ether_type = htons(ethertype_ip);
+
+                /* create ip header */
+                sr_ip_hdr_t new_ip_hdr;
+                new_ip_hdr.ip_v = 4;
+                new_ip_hdr.ip_hl = sizeof(sr_ip_hdr_t) / 4;
+                new_ip_hdr.ip_tos = 0;
+                new_ip_hdr.ip_len = htons(sizeof(sr_ip_hdr_t) + sizeof(sr_icmp_t3_hdr_t));
+                new_ip_hdr.ip_id = htons(0);
+                new_ip_hdr.ip_off = htons(IP_DF);
+                new_ip_hdr.ip_ttl = 64;
+                new_ip_hdr.ip_p = ip_protocol_icmp;
+                new_ip_hdr.ip_src = out_iface->ip;
+                new_ip_hdr.ip_dst = orig_ip_hdr->ip_src;
+                new_ip_hdr.ip_sum = 0;
+                new_ip_hdr.ip_sum = cksum(&new_ip_hdr, sizeof(sr_ip_hdr_t));
+
+                /* create icmp header */
+                sr_icmp_t3_hdr_t new_icmp_hdr;
+                new_icmp_hdr.icmp_type = 3;
+                new_icmp_hdr.icmp_code = 1;
+                new_icmp_hdr.icmp_sum = 0;
+                new_icmp_hdr.unused = 0;
+                new_icmp_hdr.next_mtu = 0;
+                memcpy(new_icmp_hdr.data, orig_ip_hdr, ICMP_DATA_SIZE);
+                new_icmp_hdr.icmp_sum = cksum(&new_icmp_hdr, sizeof(sr_icmp_t3_hdr_t));
+
+                /* make the packet */
+                unsigned int total_len = sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t) + sizeof(sr_icmp_t3_hdr_t);
+                uint8_t *icmp_packet = malloc(total_len);
+                memcpy(icmp_packet, &new_eth_hdr, sizeof(sr_ethernet_hdr_t));
+                memcpy(icmp_packet + sizeof(sr_ethernet_hdr_t), &new_ip_hdr, sizeof(sr_ip_hdr_t));
+                memcpy(icmp_packet + sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t), &new_icmp_hdr, sizeof(sr_icmp_t3_hdr_t));
+
+                
+                if (sr_send_packet(sr, icmp_packet, total_len, out_iface->name) != 0) {
+                    fprintf(stderr, "Failed to send ICMP Host Unreachable message.\n");
+                }
+
+                free(icmp_packet);
+                packet = packet->next;
+            }
+            sr_arpreq_destroy(&sr->cache, req);
+        } else {
+            printf("ARPSWEEP ARP REQUEST\n");
+            struct sr_if *out_iface = sr_get_interface(sr, req->packets->iface);
+            if (!out_iface) {
+                fprintf(stderr, "Interface %s not found.\n", req->packets->iface);
+                return;
+            }
+
+            /* create eth header */
+            sr_ethernet_hdr_t eth_hdr;
+            memset(eth_hdr.ether_dhost, 0xFF, ETHER_ADDR_LEN); /* Broadcast */
+            memcpy(eth_hdr.ether_shost, out_iface->addr, ETHER_ADDR_LEN);
+            eth_hdr.ether_type = htons(ethertype_arp);
+
+            /* create arp header */
+            sr_arp_hdr_t arp_hdr;
+            arp_hdr.ar_hrd = htons(arp_hrd_ethernet);
+            arp_hdr.ar_pro = htons(ethertype_ip);
+            arp_hdr.ar_hln = ETHER_ADDR_LEN;
+            arp_hdr.ar_pln = 4;
+            arp_hdr.ar_op = htons(arp_op_request);
+            memcpy(arp_hdr.ar_sha, out_iface->addr, ETHER_ADDR_LEN);
+            arp_hdr.ar_sip = out_iface->ip;
+            memset(arp_hdr.ar_tha, 0x00, ETHER_ADDR_LEN);
+            arp_hdr.ar_tip = req->ip;
+
+            /* make the packet */
+            unsigned int len = sizeof(sr_ethernet_hdr_t) + sizeof(sr_arp_hdr_t);
+            uint8_t *arp_packet = malloc(len);
+            memcpy(arp_packet, &eth_hdr, sizeof(sr_ethernet_hdr_t));
+            memcpy(arp_packet + sizeof(sr_ethernet_hdr_t), &arp_hdr, sizeof(sr_arp_hdr_t));
+
+            if (sr_send_packet(sr, arp_packet, len, out_iface->name) != 0) {
+                fprintf(stderr, "Failed to send ARP request.\n");
+            }
+
+            free(arp_packet);
+
+            /* update send time and count of arp request */
+            req->sent = now;
+            req->times_sent++;
+        }
     }
 }
 
