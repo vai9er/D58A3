@@ -14,6 +14,7 @@
 #include <string.h>
 
 #include "sr_utils.h"
+void handle_arpreq(struct sr_instance *sr, struct sr_arpreq *req);
 
 /* 
   This function gets called every second. For each request sent out, we keep
@@ -44,7 +45,6 @@ void handle_arpreq(struct sr_instance *sr, struct sr_arpreq *req) {
             struct sr_packet *packet = req->packets;
             while (packet != NULL) {
                 uint8_t *buf = packet->buf;
-                unsigned int len = packet->len;
                 char *iface = packet->iface;
 
                 struct sr_if *out_iface = sr_get_interface(sr, iface);
@@ -354,7 +354,7 @@ void *sr_arpcache_timeout(void *sr_ptr) {
     struct sr_arpcache *cache = &(sr->cache);
     
     while (1) {
-        sleep(1.0);
+        usleep(1e6);
         
         pthread_mutex_lock(&(cache->lock));
     
