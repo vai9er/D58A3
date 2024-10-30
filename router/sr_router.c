@@ -55,7 +55,7 @@ void sr_init(struct sr_instance* sr)
 struct sr_rt *sr_longest_prefix(struct sr_instance* sr, uint32_t ip)
 {
 	struct sr_rt *table = NULL;
-  struct sr_rt *longest= NULL;
+  struct sr_rt *longest = NULL;
 	unsigned long maxlen = 0;
 	
 	for (table = sr->routing_table; table != NULL; table = table->next) {
@@ -330,6 +330,7 @@ void sr_handlepacket(struct sr_instance* sr,
           send_icmp_echo(sr, eth_hdr, ip_hdr, packet);
           return;
         }
+        return;
 			}
     }
 
