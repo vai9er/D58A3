@@ -159,36 +159,6 @@ def udp(target_ip):
     udp_socket.close()
     icmp_socket.close()
 
-def tcp(target_ip):   
-    tcp_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    tcp_socket.connect((target_ip, 80))
-    print("Connected to TCP server at {}:{}".format(target_ip, 80))
-
-    message = "Hello, TCP!"
-    tcp_socket.sendto(message, (target_ip, 80))
-    print("Sent TCP message")
-
-    icmp_socket = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.getprotobyname('icmp'))
-
-    icmp_socket.settimeout(5)
-
-    try:
-        response, addr = icmp_socket.recvfrom(1024)  
-        print("Received ICMP response from:", addr)
-
-        icmp_header = response[20:28] 
-        icmp_type, code, checksum, packet_id, sequence = struct.unpack("!BBHHH", icmp_header)
-
-
-        print("ICMP Type:", icmp_type)
-        print("ICMP Code:", code)
-    except socket.timeout:
-        print("No ICMP response received within timeout period.")
-
-    tcp_socket.close()
-    icmp_socket.close()
-
-
 
 if __name__ == '__main__':
     iface = 'client-eth0'  
@@ -197,62 +167,53 @@ if __name__ == '__main__':
     target_mac = '5E:E5:48:C2:40:FC' 
     target_ip =  "10.0.1.1"  
     
-    print("Send UDP to router eth1 (192.168.2.1)")
+    print("Send UDP to router eth1 (192.168.2.1)\n")
     target_ip =  "192.168.2.1"  
 
     udp(target_ip)
 
     print(" ")
 
-    print("Send UDP to router eth2 (172.64.3.1)")
+    print("Send UDP to router eth2 (172.64.3.1)\n")
     target_ip =  "172.64.3.1"  
 
     udp(target_ip)
 
     print(" ")
 
-    print("Send UDP to  router eth3 (10.0.1.1)")
+    print("Send UDP to  router eth3 (10.0.1.1)\n")
     target_ip =  "10.0.1.1"  
     
     udp(target_ip)
 
     print(" ")
 
-    print("Send ARP request")
-    # Create an ARP request packet
-    packet = create_arp_packet(src_mac, src_ip, target_mac, target_ip, op_code=1)  # op_code=1 for request
+    print("Send ARP request\n")
+    packet = create_arp_packet(src_mac, src_ip, target_mac, target_ip, op_code=1) 
 
-    # Send the packet
+
     sock = send_arp_packet(iface, packet)
 
     listen_for_arp_reply(sock, target_ip)
 
     print(" ")
 
-    print("Send ARP reply")
-    # Create an ARP request packet
-    packet = create_arp_packet(src_mac, src_ip, target_mac, target_ip, op_code=2)  # op_code=1 for request
 
-    # Send the packet
-    sock = send_arp_packet(iface, packet)
-
-    print(" ")
-
-    print("Send invalid checksum IMCP to router eth1 (192.168.2.1)")
+    print("Send invalid checksum IMCP to router eth1 (192.168.2.1)\n")
     target_ip =  "192.168.2.1"  
 
     bad_ping(target_ip)
 
     print(" ")
 
-    print("Send invalid checksum IMCP to router eth2 (172.64.3.1)")
+    print("Send invalid checksum IMCP to router eth2 (172.64.3.1)\n")
     target_ip =  "172.64.3.1"  
 
     bad_ping(target_ip)
 
     print(" ")
 
-    print("Send invalid checksum IMCP to  router eth3 (10.0.1.1)")
+    print("Send invalid checksum IMCP to  router eth3 (10.0.1.1)\n")
     target_ip =  "10.0.1.1"  
 
     bad_ping(target_ip)
@@ -260,97 +221,66 @@ if __name__ == '__main__':
     print(" ")
 
 
-    #ROUTER TESTS
-    print("Ping router eth1 (192.168.2.1)")
+    print("Ping router eth1 (192.168.2.1)\n")
     subprocess.call(["ping", "-c", "3", "192.168.2.1"])
 
     print(" ")
 
-    print("Ping router eth2 (172.64.3.1)")
+    print("Ping router eth2 (172.64.3.1)\n")
     subprocess.call(["ping", "-c", "3", "172.64.3.1"])
 
     print(" ")
 
-    print("Ping router eth3 (10.0.1.1)")
+    print("Ping router eth3 (10.0.1.1)\n")
     subprocess.call(["ping", "-c", "3", "10.0.1.1"])
 
     print(" ")
 
-    print("Traceroute router eth1 (192.168.2.1)")
+    print("Traceroute router eth1 (192.168.2.1)\n")
     subprocess.call(["traceroute", "-n", "192.168.2.1"])
+
     print(" ")
-    print("Traceroute router  eth2 (172.64.3.1)")
+
+    print("Traceroute router  eth2 (172.64.3.1)\n")
     subprocess.call(["traceroute", "-n", "172.64.3.1"])
 
     print(" ")
 
-    print("Traceroute router eth3 (10.0.1.1)")
+    print("Traceroute router eth3 (10.0.1.1)\n")
     subprocess.call(["traceroute", "-n","10.0.1.1"])
 
     print(" ")
 
-    #SERVER TESTS
-
-    print("Ping server1 (192.168.2.2)")
+    print("Ping server1 (192.168.2.2)\n")
     subprocess.call(["ping", "-c", "3", "192.168.2.2"])
 
     print(" ")
 
-    print("Ping server2 (172.64.3.10)")
+    print("Ping server2 (172.64.3.10)\n")
     subprocess.call(["ping", "-c", "3", "172.64.3.10"])
 
     print(" ")
 
-    print("Traceroute  server1 (192.168.2.2)")
+    print("Traceroute  server1 (192.168.2.2)\n")
     subprocess.call(["traceroute", "-n", "192.168.2.2"])
 
     print(" ")
 
-    print("Traceroute  server2 (172.64.3.10)")
+    print("Traceroute  server2 (172.64.3.10)\n")
     subprocess.call(["traceroute", "-n","172.64.3.10"])
 
     print(" ")
 
-    print("wget server1 (192.168.2.2)")
+    print("wget server1 (192.168.2.2)\n")
     subprocess.call(["wget", "http://192.168.2.2"])
 
     print(" ")
 
-    print("wget server2 (172.64.3.10)")
+    print("wget server2 (172.64.3.10)\n")
     subprocess.call(["wget", "http://172.64.3.10"])
 
 
-    print("Destination Net Unreachable")
+    print("Destination Net Unreachable\n")
     subprocess.call(["ping", "-c", "3", "8.8.8.8"])
-   
-    print(" ")
-
-    """
-    print("Destination host Unreachable")
-    subprocess.call(["link", "server1", "sw0", "down"])
-    subprocess.call(["ping", "-c", "3", "192.168.2.2"])
-    subprocess.call(["link", "server1", "sw0", "up"])
-
-     print("Send TCP to router eth1 (192.168.2.1)")
-    target_ip =  "192.168.2.1"  
-
-    tcp(target_ip)
-
-    print(" ")
-
-    print("Send TCP to router eth2 (172.64.3.1)")
-    target_ip =  "172.64.3.1"  
-
-    tcp(target_ip)
-
-    print(" ")
-
-    print("Send TCP to router eth3 (10.0.1.1)")
-    target_ip =  "10.0.1.1"  
-    
-    tcp(target_ip)
-
-    print(" ")
-    """
 
 
