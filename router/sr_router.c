@@ -106,7 +106,7 @@ int send_icmp_echo(struct sr_instance* sr, uint8_t *eth, uint8_t *ip, uint8_t * 
 	new_ip_hdr->ip_len = htons(sizeof(sr_ip_hdr_t) + icmp_len);
 	new_ip_hdr->ip_id = htons(ip_id);
 	new_ip_hdr->ip_off = htons(IP_DF);
-	new_ip_hdr->ip_ttl = 64;
+	new_ip_hdr->ip_ttl = 100;
 	new_ip_hdr->ip_p = ip_protocol_icmp;
 	new_ip_hdr->ip_src = srcip;
 	new_ip_hdr->ip_dst = desip;
@@ -189,7 +189,7 @@ int send_icmp(struct sr_instance* sr, uint8_t *eth, uint8_t *ip, uint8_t * packe
 	new_ip_hdr->ip_len = htons(sizeof(sr_ip_hdr_t) + icmp_len);
 	new_ip_hdr->ip_id = htons(ip_id);
 	new_ip_hdr->ip_off = htons(IP_DF);
-	new_ip_hdr->ip_ttl = 64;
+	new_ip_hdr->ip_ttl = 100;
 	new_ip_hdr->ip_p = ip_protocol_icmp;
 	new_ip_hdr->ip_src = srcip;
 	new_ip_hdr->ip_dst = desip;

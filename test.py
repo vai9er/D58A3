@@ -160,6 +160,61 @@ def udp(target_ip):
     icmp_socket.close()
 
 
+def create_ip_bad_header(source_ip, dest_ip):
+    """Create an IP header using given source and destination IPs."""
+    version = 4
+    ihl = 5  
+    version_ihl = (version << 4) + ihl
+    tos = 0  
+    total_length = 20 + 20 
+    packet_id = 54321  
+    fragment_offset = 0
+    ttl = 64  
+    protocol = socket.IPPROTO_TCP 
+    header_checksum = 0  
+    src_ip = socket.inet_aton(source_ip)
+    dst_ip = socket.inet_aton(dest_ip)
+
+   
+    ip_header = struct.pack('!BBHHHBBH4s4s', version_ihl, tos, total_length, packet_id,
+                            fragment_offset, ttl, protocol, header_checksum, src_ip, dst_ip)
+
+    
+    header_checksum = 0 #checksum(ip_header)
+    ip_header = struct.pack('!BBHHHBBH4s4s', version_ihl, tos, total_length, packet_id,
+                            fragment_offset, ttl, protocol, header_checksum, src_ip, dst_ip)
+    return ip_header
+
+
+def create_tcp_header():
+    src_port = 12345  
+    dst_port = 80
+    seq_num = 0
+    ack_num = 0
+    offset_reserved = (5 << 4) 
+    tcp_flags = 2  #
+    window = socket.htons(5840)  
+    checksum = 0  
+    urgent_pointer = 0
+
+    tcp_header = struct.pack('!HHLLBBHHH', src_port, dst_port, seq_num, ack_num, offset_reserved, tcp_flags,
+                             window, checksum, urgent_pointer)
+    return tcp_header
+
+def send_badIP(target_ip):
+    try:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_RAW)
+    except socket.error as e:
+        print("Socket could not be created. Error Code: " + str(e[0]) + " Message " + e[1])
+        return
+
+    ip_header = create_ip_bad_header("10.0.1.100", target_ip)
+    tcp_header = create_tcp_header()
+    packet = ip_header + tcp_header
+
+    sock.sendto(packet, (target_ip, 0))
+
+
 if __name__ == '__main__':
     iface = 'client-eth0'  
     src_mac = 'F6:0F:F4:40:CB:6E'  
@@ -181,13 +236,30 @@ if __name__ == '__main__':
 
     print(" ")
 
-    print("Send UDP to  router eth3 (10.0.1.1)\n")
+    print("Send UDP to router eth3 (10.0.1.1)\n")
     target_ip =  "10.0.1.1"  
     
     udp(target_ip)
 
     print(" ")
 
+
+    print("Send UDP to server1 (192.168.2.2)\n")
+    target_ip =  "192.168.2.2"  
+
+    udp(target_ip)
+
+    print(" ")
+
+    print("Send UDP to server2 (172.64.3.10)\n")
+    target_ip =  "172.64.3.10"  
+
+    udp(target_ip)
+
+    print(" ")
+
+
+    """
     print("Send ARP request\n")
     packet = create_arp_packet(src_mac, src_ip, target_mac, target_ip, op_code=1) 
 
@@ -197,26 +269,48 @@ if __name__ == '__main__':
     listen_for_arp_reply(sock, target_ip)
 
     print(" ")
+    """
 
 
-    print("Send invalid checksum IMCP to router eth1 (192.168.2.1)\n")
+    print("Send invalid checksum ICMP to router eth1 (192.168.2.1)\n")
     target_ip =  "192.168.2.1"  
 
     bad_ping(target_ip)
 
     print(" ")
 
-    print("Send invalid checksum IMCP to router eth2 (172.64.3.1)\n")
+    print("Send invalid checksum ICMP to router eth2 (172.64.3.1)\n")
     target_ip =  "172.64.3.1"  
 
     bad_ping(target_ip)
 
     print(" ")
 
-    print("Send invalid checksum IMCP to  router eth3 (10.0.1.1)\n")
+    print("Send invalid checksum ICMP to  router eth3 (10.0.1.1)\n")
     target_ip =  "10.0.1.1"  
 
     bad_ping(target_ip)
+
+    print(" ")
+
+    print("Send invalid checksum IP to router eth1 (192.168.2.1)\n")
+    target_ip =  "192.168.2.1"  
+
+    send_badIP(target_ip)
+
+    print(" ")
+
+    print("Send invalid checksum IP to router eth2 (172.64.3.1)\n")
+    target_ip =  "172.64.3.1"  
+
+    send_badIP(target_ip)
+
+    print(" ")
+
+    print("Send invalid checksum IP to  router eth3 (10.0.1.1)\n")
+    target_ip =  "10.0.1.1"  
+
+    send_badIP(target_ip)
 
     print(" ")
 

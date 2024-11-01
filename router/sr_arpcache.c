@@ -57,51 +57,7 @@ void handle_arpreq(struct sr_instance *sr, struct sr_arpreq *req) {
                 /* extract the original eth and ip header */
                 sr_ethernet_hdr_t *orig_eth_hdr = (sr_ethernet_hdr_t *)buf;
                 sr_ip_hdr_t *orig_ip_hdr = (sr_ip_hdr_t *)(buf + sizeof(sr_ethernet_hdr_t));
-
-                /* create new eth header */
-                sr_ethernet_hdr_t new_eth_hdr;
-                memcpy(new_eth_hdr.ether_dhost, orig_eth_hdr->ether_shost, ETHER_ADDR_LEN);
-                memcpy(new_eth_hdr.ether_shost, out_iface->addr, ETHER_ADDR_LEN);
-                new_eth_hdr.ether_type = htons(ethertype_ip);
-
-                /* create ip header */
-                sr_ip_hdr_t new_ip_hdr;
-                new_ip_hdr.ip_v = 4;
-                new_ip_hdr.ip_hl = sizeof(sr_ip_hdr_t) / 4;
-                new_ip_hdr.ip_tos = 0;
-                new_ip_hdr.ip_len = htons(sizeof(sr_ip_hdr_t) + sizeof(sr_icmp_t3_hdr_t));
-                new_ip_hdr.ip_id = htons(0);
-                new_ip_hdr.ip_off = htons(IP_DF);
-                new_ip_hdr.ip_ttl = 64;
-                new_ip_hdr.ip_p = ip_protocol_icmp;
-                new_ip_hdr.ip_src = out_iface->ip;
-                new_ip_hdr.ip_dst = orig_ip_hdr->ip_src;
-                new_ip_hdr.ip_sum = 0;
-                new_ip_hdr.ip_sum = cksum(&new_ip_hdr, sizeof(sr_ip_hdr_t));
-
-                /* create icmp header */
-                sr_icmp_t3_hdr_t new_icmp_hdr;
-                new_icmp_hdr.icmp_type = 3;
-                new_icmp_hdr.icmp_code = 1;
-                new_icmp_hdr.icmp_sum = 0;
-                new_icmp_hdr.unused = 0;
-                new_icmp_hdr.next_mtu = 0;
-                memcpy(new_icmp_hdr.data, orig_ip_hdr, ICMP_DATA_SIZE);
-                new_icmp_hdr.icmp_sum = cksum(&new_icmp_hdr, sizeof(sr_icmp_t3_hdr_t));
-
-                /* make the packet */
-                unsigned int total_len = sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t) + sizeof(sr_icmp_t3_hdr_t);
-                uint8_t *icmp_packet = malloc(total_len);
-                memcpy(icmp_packet, &new_eth_hdr, sizeof(sr_ethernet_hdr_t));
-                memcpy(icmp_packet + sizeof(sr_ethernet_hdr_t), &new_ip_hdr, sizeof(sr_ip_hdr_t));
-                memcpy(icmp_packet + sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t), &new_icmp_hdr, sizeof(sr_icmp_t3_hdr_t));
-
-                
-                if (sr_send_packet(sr, icmp_packet, total_len, out_iface->name) != 0) {
-                    fprintf(stderr, "Failed to send ICMP Host Unreachable message.\n");
-                }
-
-                free(icmp_packet);
+                send_icmp(sr, orig_eth_hdr, orig_ip_hdr, buf, 3, 1);
                 packet = packet->next;
             }
             sr_arpreq_destroy(&sr->cache, req);

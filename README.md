@@ -57,6 +57,10 @@ Send ICMP errors:
     
     Returns 0 on successful sending of the ICMP packet, -1 on failure.
 
+Testing:
+    I wrote test.py a simple python testing script that automatically runs most 
+    of our test cases.
+
 ### Gabriel Contribution:
 
 void handle_arp(struct sr_instance* sr, uint8_t* packet, unsigned int len, char* interface)
@@ -119,10 +123,21 @@ Packet forwarding
 
 ### test.py output (ran from client on mininet)
 
------------------------------------------------------------------------------
-Testing (If we use my test.py)
+Ran with client python test.py
 
-Test Cases:
+-----------------------------------------------------------------------------
+Test Cases
+
+UDP, invalid checksum ICMP, invalid checksum IP, Ping router,
+Ping servers, Traceroute router, Traceroute server, wget servers,
+Destination Net Unreachable.
+
+
+Instruction to run:
+
+    mininet> client python test.py
+
+Output:
 
 Send UDP to router eth1 (192.168.2.1)
 
@@ -138,139 +153,154 @@ Send UDP to router eth2 (172.64.3.1)
 ('ICMP Type:', 3)
 ('ICMP Code:', 3)
  
-Send UDP to  router eth3 (10.0.1.1)
+Send UDP to router eth3 (10.0.1.1)
 
 ('Sent UDP message:', 'Hello, UDP!')
 ('Received ICMP response from:', ('10.0.1.1', 0))
 ('ICMP Type:', 3)
 ('ICMP Code:', 3)
  
-Send ARP request
+Send UDP to server1 (192.168.2.2)
 
-ARP sent
-Listening for ARP reply...
-Received ARP reply:
-('Sender MAC:', '76:0c:ee:07:d8:96')
-('Sender IP:', '10.0.1.1')
+('Sent UDP message:', 'Hello, UDP!')
+('Received ICMP response from:', ('192.168.2.2', 0))
+('ICMP Type:', 3)
+('ICMP Code:', 3)
  
-Send invalid checksum IMCP to router eth1 (192.168.2.1)
+Send UDP to server2 (172.64.3.10)
+
+('Sent UDP message:', 'Hello, UDP!')
+('Received ICMP response from:', ('172.64.3.10', 0))
+('ICMP Type:', 3)
+('ICMP Code:', 3)
+ 
+Send invalid checksum ICMP to router eth1 (192.168.2.1)
 
 Request timed out.
  
-Send invalid checksum IMCP to router eth2 (172.64.3.1)
+Send invalid checksum ICMP to router eth2 (172.64.3.1)
 
 Request timed out.
  
-Send invalid checksum IMCP to  router eth3 (10.0.1.1)
+Send invalid checksum ICMP to  router eth3 (10.0.1.1)
 
 Request timed out.
+ 
+Send invalid checksum IP to router eth1 (192.168.2.1)
+
+ 
+Send invalid checksum IP to router eth2 (172.64.3.1)
+
+ 
+Send invalid checksum IP to  router eth3 (10.0.1.1)
+
  
 Ping router eth1 (192.168.2.1)
 
 PING 192.168.2.1 (192.168.2.1) 56(84) bytes of data.
-64 bytes from 192.168.2.1: icmp_seq=1 ttl=64 time=20.2 ms
-64 bytes from 192.168.2.1: icmp_seq=2 ttl=64 time=31.3 ms
-64 bytes from 192.168.2.1: icmp_seq=3 ttl=64 time=30.5 ms
+64 bytes from 192.168.2.1: icmp_seq=1 ttl=100 time=106 ms
+64 bytes from 192.168.2.1: icmp_seq=2 ttl=100 time=40.9 ms
+64 bytes from 192.168.2.1: icmp_seq=3 ttl=100 time=27.8 ms
 
 --- 192.168.2.1 ping statistics ---
-3 packets transmitted, 3 received, 0% packet loss, time 2006ms
-rtt min/avg/max/mdev = 20.211/27.360/31.326/5.065 ms
+3 packets transmitted, 3 received, 0% packet loss, time 2003ms
+rtt min/avg/max/mdev = 27.847/58.094/105.536/33.967 ms
  
 Ping router eth2 (172.64.3.1)
 
 PING 172.64.3.1 (172.64.3.1) 56(84) bytes of data.
-64 bytes from 172.64.3.1: icmp_seq=1 ttl=64 time=8.32 ms
-64 bytes from 172.64.3.1: icmp_seq=2 ttl=64 time=50.7 ms
-64 bytes from 172.64.3.1: icmp_seq=3 ttl=64 time=13.8 ms
+64 bytes from 172.64.3.1: icmp_seq=1 ttl=100 time=25.6 ms
+64 bytes from 172.64.3.1: icmp_seq=2 ttl=100 time=59.3 ms
+64 bytes from 172.64.3.1: icmp_seq=3 ttl=100 time=51.2 ms
 
 --- 172.64.3.1 ping statistics ---
-3 packets transmitted, 3 received, 0% packet loss, time 2005ms
-rtt min/avg/max/mdev = 8.318/24.268/50.655/18.793 ms
+3 packets transmitted, 3 received, 0% packet loss, time 2003ms
+rtt min/avg/max/mdev = 25.613/45.371/59.333/14.363 ms
  
 Ping router eth3 (10.0.1.1)
 
 PING 10.0.1.1 (10.0.1.1) 56(84) bytes of data.
-64 bytes from 10.0.1.1: icmp_seq=1 ttl=64 time=7.75 ms
-64 bytes from 10.0.1.1: icmp_seq=2 ttl=64 time=52.9 ms
-64 bytes from 10.0.1.1: icmp_seq=3 ttl=64 time=24.8 ms
+64 bytes from 10.0.1.1: icmp_seq=1 ttl=100 time=59.7 ms
+64 bytes from 10.0.1.1: icmp_seq=2 ttl=100 time=12.7 ms
+64 bytes from 10.0.1.1: icmp_seq=3 ttl=100 time=48.1 ms
 
 --- 10.0.1.1 ping statistics ---
-3 packets transmitted, 3 received, 0% packet loss, time 2005ms
-rtt min/avg/max/mdev = 7.748/28.491/52.887/18.608 ms
+3 packets transmitted, 3 received, 0% packet loss, time 2003ms
+rtt min/avg/max/mdev = 12.674/40.152/59.711/20.002 ms
  
 Traceroute router eth1 (192.168.2.1)
 
 traceroute to 192.168.2.1 (192.168.2.1), 30 hops max, 60 byte packets
- 1  192.168.2.1  53.060 ms  52.563 ms  52.276 ms
+ 1  192.168.2.1  24.048 ms  39.570 ms  56.771 ms
  
 Traceroute router  eth2 (172.64.3.1)
 
 traceroute to 172.64.3.1 (172.64.3.1), 30 hops max, 60 byte packets
- 1  172.64.3.1  35.912 ms  35.772 ms  35.701 ms
+ 1  172.64.3.1  223.421 ms  239.511 ms  258.246 ms
  
 Traceroute router eth3 (10.0.1.1)
 
 traceroute to 10.0.1.1 (10.0.1.1), 30 hops max, 60 byte packets
- 1  10.0.1.1  76.762 ms  76.630 ms  76.544 ms
+ 1  10.0.1.1  190.175 ms  198.757 ms  217.716 ms
  
 Ping server1 (192.168.2.2)
 
 PING 192.168.2.2 (192.168.2.2) 56(84) bytes of data.
-64 bytes from 192.168.2.2: icmp_seq=2 ttl=63 time=235 ms
-64 bytes from 192.168.2.2: icmp_seq=1 ttl=63 time=1248 ms
-64 bytes from 192.168.2.2: icmp_seq=3 ttl=63 time=92.6 ms
+64 bytes from 192.168.2.2: icmp_seq=2 ttl=63 time=874 ms
+64 bytes from 192.168.2.2: icmp_seq=1 ttl=63 time=1875 ms
+64 bytes from 192.168.2.2: icmp_seq=3 ttl=63 time=33.8 ms
 
 --- 192.168.2.2 ping statistics ---
-3 packets transmitted, 3 received, 0% packet loss, time 2005ms
-rtt min/avg/max/mdev = 92.575/525.064/1247.746/514.304 ms, pipe 2
+3 packets transmitted, 3 received, 0% packet loss, time 2001ms
+rtt min/avg/max/mdev = 33.796/927.650/1874.766/752.515 ms, pipe 2
  
 Ping server2 (172.64.3.10)
 
 PING 172.64.3.10 (172.64.3.10) 56(84) bytes of data.
-64 bytes from 172.64.3.10: icmp_seq=1 ttl=63 time=215 ms
-64 bytes from 172.64.3.10: icmp_seq=2 ttl=63 time=21.7 ms
-64 bytes from 172.64.3.10: icmp_seq=3 ttl=63 time=29.4 ms
+64 bytes from 172.64.3.10: icmp_seq=1 ttl=63 time=846 ms
+64 bytes from 172.64.3.10: icmp_seq=2 ttl=63 time=62.4 ms
+64 bytes from 172.64.3.10: icmp_seq=3 ttl=63 time=57.0 ms
 
 --- 172.64.3.10 ping statistics ---
-3 packets transmitted, 3 received, 0% packet loss, time 2008ms
-rtt min/avg/max/mdev = 21.713/88.725/215.053/89.382 ms
+3 packets transmitted, 3 received, 0% packet loss, time 2002ms
+rtt min/avg/max/mdev = 56.982/321.774/845.903/370.621 ms
  
 Traceroute  server1 (192.168.2.2)
 
 traceroute to 192.168.2.2 (192.168.2.2), 30 hops max, 60 byte packets
- 1  10.0.1.1  39.819 ms  39.456 ms  39.265 ms
- 2  192.168.2.2  67.935 ms  67.104 ms  109.016 ms
+ 1  10.0.1.1  59.653 ms  58.959 ms  58.575 ms
+ 2  192.168.2.2  316.775 ms  333.512 ms  350.372 ms
  
 Traceroute  server2 (172.64.3.10)
 
 traceroute to 172.64.3.10 (172.64.3.10), 30 hops max, 60 byte packets
- 1  10.0.1.1  35.692 ms  38.322 ms  81.617 ms
- 2  172.64.3.10  114.734 ms  117.225 ms  124.507 ms
+ 1  10.0.1.1  68.030 ms  78.628 ms  101.383 ms
+ 2  172.64.3.10  367.097 ms  381.448 ms  399.022 ms
  
 wget server1 (192.168.2.2)
 
---2024-10-30 17:06:11--  http://192.168.2.2/
+--2024-11-01 12:13:34--  http://192.168.2.2/
 Connecting to 192.168.2.2:80... connected.
 HTTP request sent, awaiting response... 200 OK
 Length: 161 [text/html]
-Saving to: ‘index.html.3’
+Saving to: ‘index.html.5’
 
-index.html.3        100%[===================>]     161  --.-KB/s    in 0s      
+index.html.5          0%[                    ]       0  --.-KB/s            index.html.5        100%[===================>]     161  --.-KB/s    in 0s      
 
-2024-10-30 17:06:12 (20.4 MB/s) - ‘index.html.3’ saved [161/161]
+2024-11-01 12:13:35 (6.52 MB/s) - ‘index.html.5’ saved [161/161]
 
  
 wget server2 (172.64.3.10)
 
---2024-10-30 17:06:12--  http://172.64.3.10/
+--2024-11-01 12:13:35--  http://172.64.3.10/
 Connecting to 172.64.3.10:80... connected.
 HTTP request sent, awaiting response... 200 OK
 Length: 161 [text/html]
-Saving to: ‘index.html.4’
+Saving to: ‘index.html.6’
 
-index.html.4        100%[===================>]     161  --.-KB/s    in 0s      
+index.html.6          0%[                    ]       0  --.-KB/s            index.html.6        100%[===================>]     161  --.-KB/s    in 0s      
 
-2024-10-30 17:06:12 (19.0 MB/s) - ‘index.html.4’ saved [161/161]
+2024-11-01 12:13:35 (2.17 MB/s) - ‘index.html.6’ saved [161/161]
 
 Destination Net Unreachable
 
@@ -280,4 +310,24 @@ From 8.8.8.8 icmp_seq=2 Destination Net Unreachable
 From 8.8.8.8 icmp_seq=3 Destination Net Unreachable
 
 --- 8.8.8.8 ping statistics ---
-3 packets transmitted, 0 received, +3 errors, 100% packet loss, time 2004ms
+3 packets transmitted, 0 received, +3 errors, 100% packet loss, time 2011ms
+
+Test:
+
+Destination Host Unreachable
+
+Instructions to run:
+
+    mininet> link server1 sw0 down
+    mininet> client ping -c 3 server1
+
+Output:
+
+PING 192.168.2.2 (192.168.2.2) 56(84) bytes of data.
+From 192.168.2.2 icmp_seq=3 Destination Host Unreachable
+From 192.168.2.2 icmp_seq=2 Destination Host Unreachable
+From 192.168.2.2 icmp_seq=1 Destination Host Unreachable
+
+--- 192.168.2.2 ping statistics ---
+3 packets transmitted, 0 received, +3 errors, 100% packet loss, time 2043ms
+pipe 3
