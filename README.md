@@ -1,4 +1,6 @@
 Ben Wilson 1007289024
+Gabriel Vainer 1007121204
+Howard Yang {student num}
 
 Ben's Contribution:
 
@@ -55,7 +57,42 @@ Send ICMP errors:
     
     Returns 0 on successful sending of the ICMP packet, -1 on failure.
 
+Gabriel Contribution:
 
+void handle_arp(struct sr_instance* sr, uint8_t* packet, unsigned int len, char* interface)
+
+    sr: Pointer to the router instance handling the ARP packet.
+    packet: Pointer to the incoming ARP packet data.
+    len: Length of the ARP packet.
+    interface: Name of the interface on which the ARP packet was received.
+
+    This function processes incoming ARP packets, identifying if the packet is a request or reply. If it’s a request,
+    it generates and sends an ARP reply back to the sender. If it’s a reply, it updates the ARP cache with the sender’s
+    IP and MAC information and processes any packets waiting for this ARP response.
+
+    No return value.
+
+void sr_arpcache_sweepreqs(struct sr_instance *sr)
+
+    sr: Pointer to the router instance that maintains the ARP cache.
+
+    This function sweeps through all outstanding ARP requests, handling each one with `handle_arpreq`. It 
+    determines if a request needs to be retransmitted or destroyed if it has exceeded the retry limit.
+
+    No return value.
+
+void handle_arpreq(struct sr_instance *sr, struct sr_arpreq *req)
+
+    sr: Pointer to the router instance handling the ARP request.
+    req: Pointer to the ARP request that needs to be handled.
+
+    This function manages pending ARP requests by either retransmitting an ARP request if the wait time is exceeded or 
+    sending an ICMP Host Unreachable message if the request retry limit is reached. It constructs Ethernet, IP, and ICMP 
+    headers and sends the ICMP error response to any packets waiting for the unreachable ARP target.
+
+    No return value.
+
+-----------------------------------------------------------------------------
 Testing (If we use my test.py)
 
 Test Cases:
