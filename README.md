@@ -1,8 +1,8 @@
 Ben Wilson 1007289024
 Gabriel Vainer 1007121204
-Howard Yang {student num}
+Howard Yang 1006722478
 
-Ben's Contribution:
+### Ben's Contribution:
 
 Find longest common prefix:
 
@@ -57,7 +57,7 @@ Send ICMP errors:
     
     Returns 0 on successful sending of the ICMP packet, -1 on failure.
 
-Gabriel Contribution:
+### Gabriel Contribution:
 
 void handle_arp(struct sr_instance* sr, uint8_t* packet, unsigned int len, char* interface)
 
@@ -91,6 +91,33 @@ void handle_arpreq(struct sr_instance *sr, struct sr_arpreq *req)
     headers and sends the ICMP error response to any packets waiting for the unreachable ARP target.
 
     No return value.
+
+### Howard's Contribution
+
+Packet forwarding
+    I worked on the packet forwarding which is integrated directly into the handle_packet function which builds on the ARP
+    and ICMP functions that were created. The packet forwarding allows the client to reach either server through the router's interfaces
+    and vice-versa.
+    
+    When receiving an IP packet that is not destined for the router, it first checks if for the longest prefix match
+    with the destination IP and the routing table. If there is no match then I send an ICMP packet type 3/code 0 NET unreachable using
+    Ben's send_icmp helper function.
+
+    If the longest prefix match returns a match, we must then check the ARP cache for the MAC address of the destination IP. If the entry is missing from
+    the ARP table then we queue the ARP request into the ARP cache's request queue using
+        struct sr_arpreq *sr_arpcache_queuereq(struct sr_arpcache *cache, uint32_t ip, uint8_t *packet, unsigned int packet_len, char *iface)
+    
+    The arp sweep reqs function written by Gabe will eventually send out ARP request and wait for a response for a maximum of 5 times.
+
+    I also send an ICMP packet type 11/code 0 back to the sender when the TTL field on the IP header reaches 0. This allows commands like
+    traceroute to work.
+
+    Before forwarding IP packets and responding to ICMP echoes, I check the checksum on the IP header to ensure no bits have been flipped while in transport-
+    if the checksum check fails, then we just drop the packet   
+
+    All this allows the client to traceroute, wget, and ping either server.
+
+### test.py output (ran from client on mininet)
 
 -----------------------------------------------------------------------------
 Testing (If we use my test.py)
