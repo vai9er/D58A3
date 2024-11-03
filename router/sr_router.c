@@ -76,9 +76,17 @@ int send_icmp_echo(struct sr_instance* sr, uint8_t *eth, uint8_t *ip, uint8_t * 
   sr_ip_hdr_t *ip_hdr = (sr_ip_hdr_t *)(ip);
 
   /*Extract IP Info*/
-  uint32_t srcip = ip_hdr->ip_dst;
   uint32_t desip = ip_hdr->ip_src;
   uint16_t ip_id = htons(ip_hdr->ip_id) + 1;
+
+
+  /*Run LPM*/
+	struct sr_rt *rt = sr_longest_prefix(sr, desip);
+	if (rt == NULL){
+    return -1;
+  }
+
+  uint32_t srcip = sr_get_interface(sr, rt->interface)->ip;
 
   /*Get Data*/
   uint8_t *data = packet + sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t) + sizeof(sr_icmp_hdr_t);
@@ -130,13 +138,6 @@ int send_icmp_echo(struct sr_instance* sr, uint8_t *eth, uint8_t *ip, uint8_t * 
 	memcpy(new_packet + sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t), new_icmp_hdr, icmp_len);
   memcpy(new_packet + sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t)+ sizeof(sr_icmp_hdr_t), data, data_len);
 
-
-  /*Run LPM*/
-	struct sr_rt *rt = sr_longest_prefix(sr, desip);
-	if (rt == NULL){
-    return -1;
-  }
-
   int res = sr_send_packet(sr, new_packet, len, rt->interface);
 
   /*DEBUG REMOVE BEFORE SUBMIT*/
@@ -158,10 +159,18 @@ int send_icmp(struct sr_instance* sr, uint8_t *eth, uint8_t *ip, uint8_t * packe
   sr_ethernet_hdr_t *eth_hdr = (sr_ethernet_hdr_t *)(eth);
   sr_ip_hdr_t *ip_hdr = (sr_ip_hdr_t *)(ip);
 
+
   /*Extract IP Info*/
-  uint32_t srcip = ip_hdr->ip_dst;
   uint32_t desip = ip_hdr->ip_src;
   uint16_t ip_id = htons(ip_hdr->ip_id) + 1;
+
+  /*Run LPM*/
+	struct sr_rt *rt = sr_longest_prefix(sr, desip);
+	if (rt == NULL){
+    return -1;
+  }
+
+  uint32_t srcip = sr_get_interface(sr, rt->interface)->ip;
 
   /*Build ICMP Header*/
 	sr_icmp_t3_hdr_t *new_icmp_hdr;
@@ -211,12 +220,6 @@ int send_icmp(struct sr_instance* sr, uint8_t *eth, uint8_t *ip, uint8_t * packe
 	memcpy(new_packet, new_eth_hdr, sizeof(sr_ethernet_hdr_t));
 	memcpy(new_packet + sizeof(sr_ethernet_hdr_t), new_ip_hdr, sizeof(sr_ip_hdr_t));
 	memcpy(new_packet + sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t), new_icmp_hdr, icmp_len);
-
-  /*Run LPM*/
-	struct sr_rt *rt = sr_longest_prefix(sr, desip);
-	if (rt == NULL){
-    return -1;
-  }
 
   int res = sr_send_packet(sr, new_packet, len, rt->interface);
 
